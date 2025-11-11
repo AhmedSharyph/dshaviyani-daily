@@ -1,0 +1,355 @@
+
+<div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg p-6 my-[0px]">
+  <h2 id="facilityTitle" class="text-xl font-bold text-center text-blue-800 mb-4">
+    Facility - Daily Disease Surveillance Reporting - <span id="currentYear"></span>
+  </h2>
+
+  <form id="surveillanceForm" class="space-y-6">
+    <input type="hidden" id="facility_code" name="facility_code">
+    <input type="hidden" id="facility_name" name="facility_name">
+
+    <!-- Basic Info -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-4 mb-6">
+      <div>
+        <label class="block font-semibold mb-1">Report Date</label>
+        <input type="text" name="report_date" id="report_date" class="custom-date w-full border rounded-lg p-2" required>
+      </div>
+      <div>
+        <label class="block font-semibold mb-1">OPD Total</label>
+        <input type="number" name="opd_total" min="0" placeholder="Enter opd total" class="w-full border rounded-lg p-2" required>
+      </div>
+    </div>
+
+    <!-- Disease Sections -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="border rounded-lg bg-blue-50 p-2 max-h-[600px] overflow-y-auto">
+        <h2 class="text-xl font-bold text-blue-700 sticky top-0 bg-blue-50 py-2 z-10 border-b">General Diseases</h2>
+        <div id="generalContainer" class="space-y-4 mt-2"></div>
+      </div>
+      <div class="border rounded-lg bg-orange-50 p-2 max-h-[600px] overflow-y-auto">
+        <h2 class="text-xl font-bold text-orange-700 sticky top-0 bg-orange-50 py-2 z-10 border-b">Vaccine Preventable Diseases</h2>
+        <div id="vpdContainer" class="space-y-4 mt-2"></div>
+      </div>
+    </div>
+
+    <!-- Staff Info -->
+    <div class="border rounded-lg bg-gray-100 p-4 mt-4">
+      <h2 class="text-lg font-bold mb-3">Report Updated By</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block font-semibold mb-1">Staff Name & Designation</label>
+          <select id="staff_select" name="staff_name_designation" class="w-full border rounded-lg p-2" required>
+            <option value="">Select staff</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">Date</label>
+          <input type="text" name="staff_date" id="staff_date" class="custom-date w-full border rounded-lg p-2" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div class="text-center border-t pt-4">
+      <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-2 px-6 rounded-lg">
+        Submit
+      </button>
+      <p id="statusMsg" class="text-center font-medium mt-3"></p>
+    </div>
+  </form>
+</div>
+
+<script>
+/* ================================
+   FACILITY AUTO-DETECT FROM URL
+================================ */
+const FACILITY_MAP = {
+  "kn": { name: "Sh. Kanditheemu HC", code: "2201" },
+  "nm": { name: "Sh. Noomaraa HC", code: "2202" },
+  "gd": { name: "Sh. Goidhoo HC", code: "2203" },
+  "fd": { name: "Sh. Feydhoo HC", code: "2204" },
+  "fv": { name: "Sh. Feevaku HC", code: "2205" },
+  "bl": { name: "Sh. Bilehfahi HC", code: "2206" },
+  "fk": { name: "Sh. Foakaidhoo HC", code: "2207" },
+  "nr": { name: "Sh. Narudhoo HC", code: "2208" },
+  "mr": { name: "Sh. Maroshi HC", code: "2210" },
+  "lh": { name: "Sh. Lhaimagu HC", code: "2211" },
+  "km": { name: "Sh. Komandoo HC", code: "2213" },
+  "mg": { name: "Sh. Maaungoodhoo HC", code: "2214" },
+  "fn": { name: "Sh. Atoll Hospital", code: "2215" },
+  "ml": { name: "Sh. Milandhoo HC", code: "2216" }
+};
+
+// Get facility key from URL (?facility=xx)
+function getFacilityFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("facility");
+  return FACILITY_MAP[key] || null;
+}
+
+// Apply facility info dynamically
+function setFacilityInfo() {
+  const facility = getFacilityFromURL();
+  const nameInput = document.getElementById("facility_name");
+  const codeInput = document.getElementById("facility_code");
+  const title = document.getElementById("facilityTitle");
+
+  if (facility) {
+    nameInput.value = facility.name;
+    codeInput.value = facility.code;
+    title.innerHTML = `${facility.name} - Daily Disease Surveillance Reporting - <span id="currentYear"></span>`;
+  } else {
+    nameInput.value = "Unknown Facility";
+    codeInput.value = "0000";
+    title.innerHTML = `Unknown Facility - Daily Disease Surveillance Reporting - <span id="currentYear"></span>`;
+  }
+}
+
+window.addEventListener("DOMContentLoaded", setFacilityInfo);
+</script>
+
+<script>
+  // ===== Initialization =====
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+  document.getElementById("currentYear").textContent = yyyy;
+
+  const reportDate = document.getElementById("report_date");
+  const staffDate = document.getElementById("staff_date");
+  reportDate.value = staffDate.value = todayStr;
+  reportDate.max = staffDate.max = todayStr;
+
+  // ===== Disease Lists =====
+  const generalDiseases = ["ARI","VF","AGE","Chickenpox","Conjunctivitis","HFMD/Herpangina","DF","DHF","Scrub Typhus"];
+  const vpdDiseases = ["AFP","Diphtheria","Measles","Rubella (CRS)","Meningitis","Mumps","Whooping cough","Tetanus and Neonatal tetanus"];
+
+  function buildDiseaseSection(container, diseases, color) {
+    diseases.forEach(disease => {
+      const id = disease.toLowerCase().replace(/[^\w]/g, '');
+      const div = document.createElement("div");
+      div.innerHTML = `
+        <label class="inline-flex items-center space-x-2 cursor-pointer">
+          <input type="checkbox" class="diseaseToggle" data-target="${id}Section">
+          <span class="font-semibold text-${color}-700">${disease}</span>
+        </label>
+        <div id="${id}Section" class="mt-2 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 border rounded-lg p-3 hidden" 
+             style="background-color: ${color === 'blue' ? '#bfdbfe' : '#fed7aa'};">
+          <div><label class="text-sm">Admit U5</label><input type="number" name="${id}_admit_u5" min="0" value="0" class="w-full border p-1 rounded"></div>
+          <div><label class="text-sm">Admit A5</label><input type="number" name="${id}_admit_a5" min="0" value="0" class="w-full border p-1 rounded"></div>
+          <div><label class="text-sm">OPD U5</label><input type="number" name="${id}_opd_u5" min="0" value="0" class="w-full border p-1 rounded"></div>
+          <div><label class="text-sm">OPD A5</label><input type="number" name="${id}_opd_a5" min="0" value="0" class="w-full border p-1 rounded"></div>
+        </div>`;
+      container.appendChild(div);
+    });
+  }
+
+  buildDiseaseSection(document.getElementById("generalContainer"), generalDiseases, "blue");
+  buildDiseaseSection(document.getElementById("vpdContainer"), vpdDiseases, "orange");
+
+  document.addEventListener("change", e => {
+    if (e.target.classList.contains("diseaseToggle")) {
+      const target = document.getElementById(e.target.dataset.target);
+      target.classList.toggle("hidden", !e.target.checked);
+    }
+  });
+
+  // ===== Initialize Choices.js =====
+  function initChoices() {
+    const select = document.getElementById('staff_select');
+    if (!select) return;
+    if (select.choicesInstance) {
+      select.choicesInstance.destroy();
+      select.choicesInstance = null;
+    }
+    select.choicesInstance = new Choices(select, {
+      searchEnabled: true,
+      itemSelectText: '',
+      shouldSort: false,
+      removeItemButton: true
+    });
+  }
+
+  // ===== Staff Fetch (Dynamic + New API Format) =====
+// ===== Staff Fetch (Dynamic + Facility Hcf Mapping) =====
+const STAFF_API_URL = "https://script.google.com/macros/s/AKfycbyaBLAkJtS1lH0uJXZxmpLoHwb6kM51lQWyMuLlvDGXIdfovZhl8ag3MnMDL_aeq-oGmA/exec";
+
+// Map facility codes to actual Hcf names in staff API
+const FACILITY_HCF_MAP = {
+  "2201": "Sh. Kanditheemu HC",
+  "2202": "Sh. Noomaraa HC",
+  "2203": "Sh. Goidhoo HC",
+  "2204": "Sh. Feydhoo HC",
+  "2205": "Sh. Feevaku HC",
+  "2206": "Sh. Bilehfahi HC",
+  "2207": "Sh. Foakaidhoo HC",
+  "2208": "Sh. Narudhoo HC",
+  "2210": "Sh. Maroshi HC",
+  "2211": "Sh. Lhaimagu HC",
+  "2213": "Sh. Komandoo HC",
+  "2214": "Sh. Maaungoodhoo HC",
+  "2215": "SHAH-OPD",           // <- API uses this Hcf
+  "2216": "Sh. Milandhoo HC"
+};
+
+async function fetchStaffList() {
+  const select = document.getElementById("staff_select");
+  const facilityCode = document.querySelector("input[name='facility_code']").value;
+  if (!select || !facilityCode) return;
+
+  const REGISTER_URL = `https://shaviyanipublichealth.blogspot.com/p/register-new.html?hcf=${encodeURIComponent(facilityCode)}`;
+
+  try {
+    const res = await fetch(STAFF_API_URL);
+    const data = await res.json();
+
+    select.innerHTML = '<option value="">Select staff</option>';
+
+    // Determine the correct Hcf for filtering
+    const apiHcfName = FACILITY_HCF_MAP[facilityCode];
+
+    const filtered = data.filter(staff => staff.Hcf === apiHcfName);
+
+    if (filtered.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "no_staff";
+      opt.textContent = "No staff found. Please register manually.";
+      select.appendChild(opt);
+      initChoices();
+      return;
+    }
+
+    filtered.forEach(item => {
+      const opt = document.createElement("option");
+      opt.value = item["Staff Name and Designation"];
+      opt.textContent = item["Staff Name and Designation"];
+      select.appendChild(opt);
+    });
+
+    const registerOpt = document.createElement("option");
+    registerOpt.value = "not_in_list";
+    registerOpt.textContent = "Not in list: Select to Register";
+    select.appendChild(registerOpt);
+
+    initChoices();
+
+    select.addEventListener("change", function () {
+      if (this.value === "not_in_list") {
+        window.open(
+          REGISTER_URL,
+          "RegisterStaff",
+          "width=900,height=700,top=100,left=100,resizable=yes,scrollbars=yes"
+        );
+        if (select.choicesInstance) select.choicesInstance.setChoiceByValue("");
+      }
+    });
+
+  } catch (err) {
+    console.error("Error fetching staff list:", err);
+    select.innerHTML = '<option value="">Error loading staff</option>';
+  }
+}
+
+window.addEventListener("DOMContentLoaded", fetchStaffList);
+
+
+// ===== Submit Form (Dynamic Facility + Redirect Handling) =====
+const form = document.getElementById("surveillanceForm");
+const statusMsg = document.getElementById("statusMsg");
+
+// Facility homepages (for fallback)
+const facilityHome = {
+  "2201": "https://kanditheemuhc.blogspot.com",
+  "2202": "https://noomaraahc.blogspot.com",
+  "2203": "https://goidhoohc.blogspot.com",
+  "2204": "https://feydhoohc.blogspot.com",
+  "2205": "https://feevakuhc.blogspot.com",
+  "2206": "https://bilehfahihc.blogspot.com",
+  "2207": "https://foakaidhoohc.blogspot.com",
+  "2208": "https://narudhoohc.blogspot.com",
+  "2210": "https://maroshihc.blogspot.com",
+  "2211": "https://lhaimaguhc.blogspot.com",
+  "2213": "https://komandoohc.blogspot.com",
+  "2214": "https://maaungoodhoohc.blogspot.com",
+  "2215": "https://shatollhospital.blogspot.com",
+  "2216": "https://milandhoohc.blogspot.com"
+};
+
+// Daily-data pages
+const facilityDailyData = {
+  "2201": "https://kanditheemuhc.blogspot.com/p/daily-data.html",
+  "2202": "https://noomaraahc.blogspot.com/p/daily-data.html",
+  "2203": "https://goidhoohc.blogspot.com/p/daily-data.html",
+  "2204": "https://feydhoohc.blogspot.com/p/daily-data.html",
+  "2205": "https://feevakuhc.blogspot.com/p/daily-data.html",
+  "2206": "https://bilehfahihc.blogspot.com/p/daily-data.html",
+  "2207": "https://foakaidhoohc.blogspot.com/p/daily-data.html",
+  "2208": "https://narudhoohc.blogspot.com/p/daily-data.html",
+  "2210": "https://maroshihc.blogspot.com/p/daily-data.html",
+  "2211": "https://lhaimaguhc.blogspot.com/p/daily-data.html",
+  "2213": "https://komandoohc.blogspot.com/p/daily-data.html",
+  "2214": "https://maaungoodhoohc.blogspot.com/p/daily-data.html",
+  "2215": "https://shah.surveillance.blogspot.com/p/daily-data.html",
+  "2216": "https://milandhoohc.blogspot.com/p/daily-data.html"
+};
+
+// Google Apps Script endpoint
+const scriptURL = "https://script.google.com/macros/s/AKfycbyMtC8JgkC3qaUKyClQpYLJhLA2PKhJLJmTDcpDnOcijHICT5aHqqeBFPg81G3od2gO/exec";
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const submitBtn = form.querySelector("button[type='submit']");
+  submitBtn.disabled = true;
+  statusMsg.textContent = "⏳ Submitting...";
+  statusMsg.className = "text-blue-700 font-semibold";
+
+  try {
+    const formData = new FormData(form);
+    const response = await fetch(scriptURL, { method: "POST", body: formData });
+    const result = await response.text();
+
+    // Decode HTML entities if returned
+    const cleanResult = result.replace(/&[#A-Za-z0-9]+;/g, c => {
+      const t = document.createElement("textarea");
+      t.innerHTML = c;
+      return t.value;
+    }).trim();
+
+    if (cleanResult.includes("✅") || cleanResult.includes("Data added successfully")) {
+      statusMsg.textContent = "✅ Report submitted successfully!";
+      statusMsg.className = "text-green-700 font-semibold";
+      form.reset();
+
+      // Reset dates
+      const todayStr = new Date().toISOString().split("T")[0];
+      document.getElementById("report_date").value = todayStr;
+      document.getElementById("staff_date").value = todayStr;
+
+      // ===== Redirect after submission =====
+      const facilityCode = form.querySelector('input[name="facility_code"]').value;
+      const dailyDataUrl = facilityDailyData[facilityCode];
+      const homeUrl = facilityHome[facilityCode];
+
+      // Check if daily-data page exists
+      fetch(dailyDataUrl, { method: "HEAD" })
+        .then(res => {
+          if (res.ok) window.location.href = dailyDataUrl;
+          else window.location.href = homeUrl; // fallback
+        })
+        .catch(() => {
+          window.location.href = homeUrl; // fallback
+        });
+
+    } else {
+      throw new Error(cleanResult);
+    }
+
+  } catch (err) {
+    statusMsg.textContent = "❌ Submission failed: " + err.message;
+    statusMsg.className = "text-red-700 font-semibold";
+    submitBtn.disabled = false;
+  }
+});
+</script>
